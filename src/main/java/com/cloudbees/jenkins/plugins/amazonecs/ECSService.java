@@ -196,8 +196,6 @@ public class ECSService {
 
         String familyName = fullQualifiedTemplateName(cloudName, template);
 
-        final ContainerDefinition[] definitions = new ContainerDefinition[2];
-
         final ContainerDefinition def = new ContainerDefinition()
                 .withName(familyName)
                 .withImage(template.getImage())
@@ -308,12 +306,10 @@ public class ECSService {
             LOGGER.log(Level.FINE, "Task Definition already exists: {0}", new Object[]{currentTaskDefinition.getTaskDefinitionArn()});
             return currentTaskDefinition;
         } else {
-            definitions[0] = def;
-            definitions[1] = fluentDef;
             final RegisterTaskDefinitionRequest request = new RegisterTaskDefinitionRequest()
                     .withFamily(familyName)
                     .withVolumes(template.getVolumeEntries())
-                    .withContainerDefinitions(definitions);
+                    .withContainerDefinitions(def,fluentDef);
 
             //If network mode is default, that means Null in the request, so do not set.
             if (!StringUtils.equals(StringUtils.defaultString(template.getNetworkMode()), "default")) {
