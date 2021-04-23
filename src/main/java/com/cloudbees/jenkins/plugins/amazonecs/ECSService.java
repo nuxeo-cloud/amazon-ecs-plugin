@@ -28,6 +28,8 @@ package com.cloudbees.jenkins.plugins.amazonecs;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -193,6 +195,7 @@ public class ECSService {
         final AmazonECS client = clientSupplier.get();
 
         String familyName = fullQualifiedTemplateName(cloudName, template);
+
         final ContainerDefinition def = new ContainerDefinition()
                 .withName(familyName)
                 .withImage(template.getImage())
@@ -202,6 +205,22 @@ public class ECSService {
                 .withPortMappings(template.getPortMappingEntries())
                 .withCpu(template.getCpu())
                 .withPrivileged(template.getPrivileged())
+                .withEssential(true);
+
+        /*
+            add another container definition for forward main container log to datadog
+        */
+        Map <String, String> option = new HashMap<String, String>();
+        option.put("enable-ecs-log-metadata","true");
+        final FirelensConfiguration firelensConfiguration = new FirelensConfiguration()
+                .withType("fluentbit")
+                .withOptions(option);
+
+        final ContainerDefinition fluentDef = new ContainerDefinition()
+                .withName("cloud-manager-maintenance-log-router")
+                .withImage("amazon/aws-for-fluent-bit:latest")
+                .withMemoryReservation(50)
+                .withFirelensConfiguration(firelensConfiguration)
                 .withEssential(true);
 
         /*
@@ -290,7 +309,7 @@ public class ECSService {
             final RegisterTaskDefinitionRequest request = new RegisterTaskDefinitionRequest()
                     .withFamily(familyName)
                     .withVolumes(template.getVolumeEntries())
-                    .withContainerDefinitions(def);
+                    .withContainerDefinitions(def,fluentDef);
 
             //If network mode is default, that means Null in the request, so do not set.
             if (!StringUtils.equals(StringUtils.defaultString(template.getNetworkMode()), "default")) {
